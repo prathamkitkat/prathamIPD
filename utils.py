@@ -146,28 +146,28 @@ def get_mediapipe_pose(
                         min_tracking_confidence = 0.5
 
                       ):
-    # pose = mp.solutions.pose.Pose(
-    #                                 static_image_mode = static_image_mode,
-    #                                 model_complexity = model_complexity,
-    #                                 smooth_landmarks = smooth_landmarks,
-    #                                 min_detection_confidence = min_detection_confidence,
-    #                                 min_tracking_confidence = min_tracking_confidence
-    #                              )
-    base_options = python.BaseOptions(
-    model_asset_path="pose_landmarker.task"  # required now
-    )
+    pose = mp.solutions.pose.Pose(
+                                    static_image_mode = static_image_mode,
+                                    model_complexity = model_complexity,
+                                    smooth_landmarks = smooth_landmarks,
+                                    min_detection_confidence = min_detection_confidence,
+                                    min_tracking_confidence = min_tracking_confidence
+                                 )
+#     base_options = python.BaseOptions(
+#     model_asset_path="pose_landmarker.task"  # required now
+#     )
 
-    options = vision.PoseLandmarkerOptions(
-    base_options=base_options,
+#     options = vision.PoseLandmarkerOptions(
+#     base_options=base_options,
     
-    running_mode=vision.RunningMode.VIDEO,  # or IMAGE / LIVE_STREAM
+#     running_mode=vision.RunningMode.VIDEO,  # or IMAGE / LIVE_STREAM
     
-    min_pose_detection_confidence=0.5,
-    min_pose_presence_confidence=0.5,
-    min_tracking_confidence=0.5,
+#     min_pose_detection_confidence=0.5,
+#     min_pose_presence_confidence=0.5,
+#     min_tracking_confidence=0.5,
     
-    num_poses=1
-)
+#     num_poses=1
+# )
 
-    pose = vision.PoseLandmarker.create_from_options(options)
+#     pose = vision.PoseLandmarker.create_from_options(options)
     return pose

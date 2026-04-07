@@ -1,8 +1,12 @@
 <video id="video" autoplay></video>
 <img id="output"/>
-
+<style>
+#video {
+  transform: scaleX(-1);
+}
+</style>
 <script>
-const ws = new WebSocket("ws://localhost:8000/ws");
+const ws = new WebSocket("ws://localhost:8000/wsbicep");
 
 const video = document.getElementById("video");
 const canvas = document.createElement("canvas");
@@ -16,10 +20,9 @@ navigator.mediaDevices.getUserMedia({ video: true })
 ws.onopen = () => {
   console.log("Connected ✅");
 
-  // 🔥 START sending ONLY AFTER connection is open
   setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
-      if (video.videoWidth === 0) return; // camera not ready
+      if (video.videoWidth === 0) return; 
 
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -29,7 +32,7 @@ ws.onopen = () => {
       const base64 = canvas.toDataURL("image/jpeg").split(",")[1];
       ws.send(base64);
     }
-  }, 150); // slightly slower = more stable
+  }, 150); 
 };
 
 ws.onmessage = (event) => {

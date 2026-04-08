@@ -1,11 +1,17 @@
 import cv2
+import time
 from run_curl import ArmTracker, calculate_angle, draw_form_status, draw_banner, mp_pose, mp_drawing, mp_drawing_styles
+from thresholds import get_thresholds_beginner
 
 class ProcessFrameBicep:
     def __init__(self, flip_frame=True):
         self.flip_frame = flip_frame
         self.left_arm = ArmTracker("LEFT")
         self.right_arm = ArmTracker("RIGHT")
+        self.last_active_time = time.time()
+        self.last_left_angle = None
+        self.last_right_angle = None
+        self.thresholds = get_thresholds_beginner()
 
     def process(self, frame, pose):
         if self.flip_frame:
@@ -22,21 +28,23 @@ class ProcessFrameBicep:
         form_issues = []
         left_tracking = False
         right_tracking = False
+        left_angle = None
+        right_angle = None
 
         try:
             if results.pose_landmarks:
                 lm = results.pose_landmarks.landmark
 
-                # ─── LEFT ARM ───
+                # ─── Left Arm (MediaPipe RIGHT because of mirror) ───
                 l_vis = all(lm[idx.value].visibility > 0.5 for idx in [
-                    mp_pose.PoseLandmark.LEFT_SHOULDER,
-                    mp_pose.PoseLandmark.LEFT_ELBOW,
-                    mp_pose.PoseLandmark.LEFT_WRIST
+                    mp_pose.PoseLandmark.RIGHT_SHOULDER,
+                    mp_pose.PoseLandmark.RIGHT_ELBOW,
+                    mp_pose.PoseLandmark.RIGHT_WRIST
                 ])
                 if l_vis:
-                    l_sh = lm[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
-                    l_el = lm[mp_pose.PoseLandmark.LEFT_ELBOW.value]
-                    l_wr = lm[mp_pose.PoseLandmark.LEFT_WRIST.value]
+                    l_sh = lm[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
+                    l_el = lm[mp_pose.PoseLandmark.RIGHT_ELBOW.value]
+                    l_wr = lm[mp_pose.PoseLandmark.RIGHT_WRIST.value]
 
                     left_angle = calculate_angle(
                         [l_sh.x, l_sh.y], [l_el.x, l_el.y], [l_wr.x, l_wr.y])
@@ -60,16 +68,16 @@ class ProcessFrameBicep:
                                     (el_px[0] + 10, el_px[1] + 25),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 1, cv2.LINE_AA)
 
-                # ─── RIGHT ARM ───
+                # ─── Right Arm (MediaPipe LEFT because of mirror) ───
                 r_vis = all(lm[idx.value].visibility > 0.5 for idx in [
-                    mp_pose.PoseLandmark.RIGHT_SHOULDER,
-                    mp_pose.PoseLandmark.RIGHT_ELBOW,
-                    mp_pose.PoseLandmark.RIGHT_WRIST
+                    mp_pose.PoseLandmark.LEFT_SHOULDER,
+                    mp_pose.PoseLandmark.LEFT_ELBOW,
+                    mp_pose.PoseLandmark.LEFT_WRIST
                 ])
                 if r_vis:
-                    r_sh = lm[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
-                    r_el = lm[mp_pose.PoseLandmark.RIGHT_ELBOW.value]
-                    r_wr = lm[mp_pose.PoseLandmark.RIGHT_WRIST.value]
+                    r_sh = lm[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
+                    r_el = lm[mp_pose.PoseLandmark.LEFT_ELBOW.value]
+                    r_wr = lm[mp_pose.PoseLandmark.LEFT_WRIST.value]
 
                     right_angle = calculate_angle(
                         [r_sh.x, r_sh.y], [r_el.x, r_el.y], [r_wr.x, r_wr.y])
@@ -100,6 +108,36 @@ class ProcessFrameBicep:
         except Exception as e:
             print(f"Error: {e}")
 
+        # ─── INACTIVITY CHECK ───
+        is_active = False
+        if results.pose_landmarks:
+            if left_angle is not None:
+                if self.last_left_angle is None or abs(left_angle - self.last_left_angle) > 5:
+                    is_active = True
+                self.last_left_angle = left_angle
+
+            if right_angle is not None:
+                if self.last_right_angle is None or abs(right_angle - self.last_right_angle) > 5:
+                    is_active = True
+                self.last_right_angle = right_angle
+
+        if is_active:
+            self.last_active_time = time.time()
+        else:
+            if (time.time() - self.last_active_time) >= self.thresholds['INACTIVE_THRESH']:
+                # Reset Bicep counters due to inactivity
+                self.left_arm.counter = 0
+                self.left_arm.half_reps = 0
+                self.left_arm.stage = 'down'
+                self.left_arm.locked = False
+                
+                self.right_arm.counter = 0
+                self.right_arm.half_reps = 0
+                self.right_arm.stage = 'down'
+                self.right_arm.locked = False
+                
+                self.last_active_time = time.time()
+
         # ─── Draw Landmarks ───
         if results.pose_landmarks:
             mp_drawing.draw_landmarks(
@@ -123,30 +161,31 @@ class ProcessFrameBicep:
         cv2.rectangle(ov, (0, 40), (w, 40 + bar_h), (20, 20, 20), -1)
         cv2.addWeighted(ov, 0.65, image_bgr, 0.35, 0, image_bgr)
 
-        # LEFT arm
+        # Physical Left Arm (Drawn on LEFT side of screen, x=15)
         l_color = (50, 205, 50) if left_tracking else (100, 100, 100)
-        cv2.putText(image_bgr, 'LEFT', (w - 160, 60),
+        cv2.putText(image_bgr, 'LEFT', (15, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1, cv2.LINE_AA)
-        cv2.putText(image_bgr, str(self.left_arm.counter), (w - 160, 110),
+        cv2.putText(image_bgr, str(self.left_arm.counter), (15, 110),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.5, l_color, 3, cv2.LINE_AA)
         stage_color = (50, 205, 50) if self.left_arm.stage == 'up' else (0, 165, 255)
-        cv2.putText(image_bgr, self.left_arm.stage.upper(), (w - 80, 110),
+        cv2.putText(image_bgr, self.left_arm.stage.upper(), (100, 110),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, stage_color, 2, cv2.LINE_AA)
         if self.left_arm.half_reps > 0:
-            cv2.putText(image_bgr, f'HALF: {self.left_arm.half_reps}', (w - 160, 130),
+            cv2.putText(image_bgr, f'HALF: {self.left_arm.half_reps}', (15, 130),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 220), 1, cv2.LINE_AA)
 
-        # RIGHT arm
+        # Physical Right Arm (Drawn on RIGHT side of screen, w-160)
         r_color = (0, 255, 255) if right_tracking else (100, 100, 100)
-        cv2.putText(image_bgr, 'RIGHT', (15, 60),
+        cv2.putText(image_bgr, 'RIGHT', (w - 160, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1, cv2.LINE_AA)
-        cv2.putText(image_bgr, str(self.right_arm.counter), (15, 110),
+        cv2.putText(image_bgr, str(self.right_arm.counter), (w - 160, 110),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.5, r_color, 3, cv2.LINE_AA)
         stage_color = (50, 205, 50) if self.right_arm.stage == 'up' else (0, 165, 255)
-        cv2.putText(image_bgr, self.right_arm.stage.upper(), (100, 110),
+        cv2.putText(image_bgr, self.right_arm.stage.upper(), (w - 80, 110),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, stage_color, 2, cv2.LINE_AA)
         if self.right_arm.half_reps > 0:
-            cv2.putText(image_bgr, f'HALF: {self.right_arm.half_reps}', (15, 130),
+            cv2.putText(image_bgr, f'HALF: {self.right_arm.half_reps}', (w - 160, 130),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 220), 1, cv2.LINE_AA)
 
-        return image_bgr, None
+        # Return issue messages (strip the BGR colour tuples — those are only for OpenCV)
+        return image_bgr, [msg for msg, _ in form_issues]

@@ -644,4 +644,12 @@ class ProcessFrame:
             
             
             
-        return frame, play_sound
+        # Build list of active feedback strings to send to the frontend
+        feedback_msgs = []
+        if self.state_tracker['LOWER_HIPS']:
+            feedback_msgs.append('>> GO DEEPER - LOWER YOUR HIPS <<')
+        for idx in np.where(self.state_tracker['COUNT_FRAMES'] > 0)[0]:
+            if self.state_tracker['DISPLAY_TEXT'][idx]:
+                feedback_msgs.append(self.FEEDBACK_ID_MAP[idx][0])
+
+        return frame, play_sound, feedback_msgs

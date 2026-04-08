@@ -1,5 +1,3 @@
-
-
 # Get thresholds for beginner mode
 def get_thresholds_beginner():
 
@@ -20,7 +18,7 @@ def get_thresholds_beginner():
                     'OFFSET_THRESH'    : 35.0,
                     'INACTIVE_THRESH'  : 15.0,
 
-                    'CNT_FRAME_THRESH' : 50
+                    'CNT_FRAME_THRESH' : 15
                             
                 }
 
@@ -48,7 +46,7 @@ def get_thresholds_pro():
                     'OFFSET_THRESH'    : 35.0,
                     'INACTIVE_THRESH'  : 15.0,
 
-                    'CNT_FRAME_THRESH' : 50
+                    'CNT_FRAME_THRESH' : 15
                             
                  }
                  

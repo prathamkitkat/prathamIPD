@@ -25,13 +25,10 @@ def encode_frame(frame):
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     
-    from utils import get_mediapipe_pose
-    from process_frame_curling import ProcessFrame
-    from threshold_curl import get_thresholds_beginner
+    from bicep_processor import ProcessFrameBicep
+    from run_curl import pose
     # Initialize once (IMPORTANT for performance)
-    thresholds = get_thresholds_beginner()
-    pose = get_mediapipe_pose()
-    processor = ProcessFrame(thresholds=thresholds, flip_frame=True)
+    processor = ProcessFrameBicep(flip_frame=True)
 
     while True:
         try:

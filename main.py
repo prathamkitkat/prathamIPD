@@ -119,3 +119,37 @@ async def websocket_squat(ws: WebSocket):
             import traceback
             traceback.print_exc()
             break
+
+
+@app.websocket("/wspress")
+async def websocket_press(ws: WebSocket):
+    await ws.accept()
+
+    from press_processor import ProcessFramePress
+    from run_press import pose
+
+    processor = ProcessFramePress(flip_frame=True)
+
+    while True:
+        try:
+            data = await ws.receive_text()
+
+            frame = decode_base64_frame(data)
+            processed_frame, form_issues = processor.process(frame, pose)
+            encoded = encode_frame(processed_frame)
+
+            stats = {
+                "frame": encoded,
+                "form_ok": len(form_issues) == 0,
+                "feedback": form_issues,
+                "press_counter": processor.press_counter,
+                "stage": 'up' if processor.left_arm.stage == 'up' and processor.right_arm.stage == 'up' else 'down'
+            }
+
+            await ws.send_text(json.dumps(stats))
+
+        except Exception as e:
+            print("🔥 ERROR:", e)
+            import traceback
+            traceback.print_exc()
+            break

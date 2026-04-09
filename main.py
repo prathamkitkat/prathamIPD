@@ -188,3 +188,45 @@ async def websocket_lunge(ws: WebSocket):
             import traceback
             traceback.print_exc()
             break
+
+
+@app.websocket("/wshammer")
+async def websocket_hammer(ws: WebSocket):
+    await ws.accept()
+
+    from bicep_processor import ProcessFrameBicep
+    from run_curl import pose 
+
+    processor = ProcessFrameBicep(flip_frame=True)
+    
+    while True:
+        try:
+            data = await ws.receive_text()
+
+            frame = decode_base64_frame(data)
+            processed_frame, form_issues = processor.process(frame, pose)
+            encoded = encode_frame(processed_frame)
+
+            stats = {
+                "frame": encoded,
+                "form_ok": len(form_issues) == 0,
+                "feedback": form_issues,
+                "left": {
+                    "reps": processor.left_arm.counter,
+                    "half_reps": processor.left_arm.half_reps,
+                    "stage": processor.left_arm.stage,
+                },
+                "right": {
+                    "reps": processor.right_arm.counter,
+                    "half_reps": processor.right_arm.half_reps,
+                    "stage": processor.right_arm.stage,
+                },
+            }
+
+            await ws.send_text(json.dumps(stats))
+
+        except Exception as e:
+            print("🔥 ERROR:", e)
+            import traceback
+            traceback.print_exc()
+            break

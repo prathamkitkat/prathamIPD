@@ -23,7 +23,7 @@ def main():
             break
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame, play_sound = processor.process(frame, pose)
+        frame, play_sound, feedback_msgs = processor.process(frame, pose)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
         cv2.imshow('Squat Tracker', frame)

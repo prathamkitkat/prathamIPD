@@ -153,3 +153,38 @@ async def websocket_press(ws: WebSocket):
             import traceback
             traceback.print_exc()
             break
+
+
+@app.websocket("/wslunge")
+async def websocket_lunge(ws: WebSocket):
+    await ws.accept()
+
+    from lunge_processor import ProcessFrameLunge
+    from run_curl import pose # Reuse the standard pose instance
+
+    processor = ProcessFrameLunge(flip_frame=True)
+
+    while True:
+        try:
+            data = await ws.receive_text()
+
+            frame = decode_base64_frame(data)
+            processed_frame, form_issues = processor.process(frame, pose)
+            encoded = encode_frame(processed_frame)
+
+            stats = {
+                "frame": encoded,
+                "form_ok": len(form_issues) == 0,
+                "feedback": form_issues,
+                "lunge_count": processor.lunge_count,
+                "improper_lunge": processor.improper_lunge,
+                "stage": processor.stage
+            }
+
+            await ws.send_text(json.dumps(stats))
+
+        except Exception as e:
+            print("🔥 ERROR:", e)
+            import traceback
+            traceback.print_exc()
+            break
